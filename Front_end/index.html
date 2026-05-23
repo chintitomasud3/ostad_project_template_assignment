@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>নামের তালিকা</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      max-width: 650px; 
+      margin: 2rem auto; 
+      padding: 0 1rem; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h2 { 
+      text-align: center; 
+      color: #333; 
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+    }
+    .form-container { 
+      background: #f8f9fa; 
+      padding: 1rem; 
+      border-radius: 8px; 
+      margin-bottom: 1.5rem;
+      border: 1px solid #e9ecef;
+    }
+    .form-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    input[type="text"] { 
+      flex: 1;
+      min-width: 200px;
+      padding: 0.7rem; 
+      border: 2px solid #ddd; 
+      border-radius: 6px; 
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button { 
+      padding: 0.7rem 1.2rem; 
+      border: none; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    button[type="submit"] { 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; 
+    }
+    button[type="submit"]:hover { 
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    #cancelBtn { 
+      background: #f44336; 
+      color: white;
+      display: none; 
+    }
+    #cancelBtn:hover { background: #d32f2f; }
+    
+    #nameList { 
+      list-style: none; 
+      padding: 0; 
+    }
+    #nameList li { 
+      background: #fff; 
+      padding: 1rem; 
+      margin-bottom: 0.75rem; 
+      border-radius: 8px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border-left: 4px solid #667eea;
+      transition: transform 0.2s;
+    }
+    #nameList li:hover {
+      transform: translateX(4px);
+    }
+    #nameList li span {
+      font-size: 1.05rem;
+      color: #333;
+      flex: 1;
+    }
+    .actions { 
+      display: flex; 
+      gap: 0.4rem; 
+    }
+    .actions button { 
+      padding: 0.45rem 0.8rem; 
+      font-size: 0.85rem; 
+      border-radius: 5px;
+    }
+    .edit-btn { 
+      background: #2196F3; 
+      color: white; 
+    }
+    .edit-btn:hover { background: #1976D2; }
+    .delete-btn { 
+      background: #f44336; 
+      color: white; 
+    }
+    .delete-btn:hover { background: #d32f2f; }
+    
+    .empty-msg {
+      text-align: center;
+      color: #777;
+      padding: 2rem;
+      font-style: italic;
+    }
+    .status-msg {
+      text-align: center;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      display: none;
+    }
+    .status-msg.success {
+      background: #d4edda;
+      color: #155724;
+      display: block;
+    }
+    .status-msg.error {
+      background: #f8d7da;
+      color: #721c24;
+      display: block;
+    }
+    .timestamp {
+      font-size: 0.75rem;
+      color: #999;
+      margin-left: 0.5rem;
+    }
+    
+    @media (max-width: 500px) {
+      .form-row { flex-direction: column; }
+      button { width: 100%; }
+      #nameList li { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+      .actions { width: 100%; justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📝 নামের তালিকা ম্যানেজার</h2>
+    
+    <div id="statusMsg" class="status-msg"></div>
+    
+    <div class="form-container">
+      <form id="nameForm">
+        <input type="hidden" id="editId">
+        <div class="form-row">
+          <input type="text" id="nameInput" placeholder="নাম লিখুন..." required autocomplete="off">
+          <button type="submit" id="submitBtn">➕ যোগ করুন</button>
+          <button type="button" id="cancelBtn" onclick="resetForm()">❌ বাতিল</button>
+        </div>
+      </form>
+    </div>
+
+    <ul id="nameList">
+      <!-- নামগুলো এখানে ডাইনামিকভাবে লোড হবে -->
+    </ul>
+  </div>
+
+  <script>
+    // 🔗 API Base URL - Full Absolute Path
+    const API_BASE = 'http://127.0.0.1:3000';
+    const API_URL = `${API_BASE}/api/names`;
+
+    // DOM Elements
+    const form = document.getElementById('nameForm');
+    const nameInput = document.getElementById('nameInput');
+    const editIdInput = document.getElementById('editId');
+    const submitBtn = document.getElementById('submitBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const nameList = document.getElementById('nameList');
+    const statusMsg = document.getElementById('statusMsg');
+
+    // 📥 সব নাম ফেচ করুন
+    async function fetchNames() {
+      try {
+        showStatus('লোড হচ্ছে...', 'success');
+        const res = await fetch(API_URL);
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const names = await res.json();
+        renderNames(names);
+        hideStatus();
+      } catch (err) {
+        console.error('❌ ডাটা ফেচ এরর:', err);
+        showStatus('সার্ভার থেকে ডাটা আনতে সমস্যা হয়েছে! CORS চেক করুন।', 'error');
+      }
+    }
+
+    // 🎨 নামগুলো রেন্ডার করুন
+    function renderNames(names) {
+      nameList.innerHTML = '';
+      
+      if (!names || names.length === 0) {
+        nameList.innerHTML = '<li class="empty-msg">📭 এখনো কোনো নাম যোগ করা হয়নি</li>';
+        return;
+      }
+      
+      names.forEach(n => {
+        const li = document.createElement('li');
+        const date = n.createdAt ? new Date(n.createdAt).toLocaleDateString('bn-BD') : '';
+        
+        li.innerHTML = `
+          <div>
+            <span>${escapeHtml(n.name)}</span>
+            ${date ? `<span class="timestamp">📅 ${date}</span>` : ''}
+          </div>
+          <div class="actions">
+            <button class="edit-btn" onclick="editName('${n._id}', '${escapeHtml(n.name)}')">✏️ এডিট</button>
+            <button class="delete-btn" onclick="deleteName('${n._id}')">🗑️ ডিলিট</button>
+          </div>
+        `;
+        nameList.appendChild(li);
+      });
+    }
+
+    // 🛡️ XSS অ্যাটাক প্রতিরোধ
+    function escapeHtml(text) {
+      if (!text) return '';
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // 📢 স্ট্যাটাস মেসেজ দেখান
+    function showStatus(msg, type) {
+      statusMsg.textContent = msg;
+      statusMsg.className = `status-msg ${type}`;
+      setTimeout(() => hideStatus(), 3000);
+    }
+    
+    function hideStatus() {
+      statusMsg.style.display = 'none';
+    }
+
+    // ➕➡️💾 ফর্ম সাবমিট (নতুন যোগ বা আপডেট)
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      const id = editIdInput.value;
+      
+      if (!name) {
+        showStatus('নাম খালি রাখা যাবে না!', 'error');
+        return;
+      }
+
+      try {
+        const url = id ? `${API_URL}/${id}` : API_URL;
+        const method = id ? 'PUT' : 'POST';
+        
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+        
+        showStatus(id ? '✅ নাম আপডেট হয়েছে!' : '✅ নাম যোগ হয়েছে!', 'success');
+        resetForm();
+        fetchNames();
+        
+      } catch (err) {
+        console.error('❌ সেভ এরর:', err);
+        showStatus(`সমস্যা: ${err.message}`, 'error');
+      }
+    });
+
+    // ✏️ এডিট মোড চালু করুন
+    function editName(id, name) {
+      editIdInput.value = id;
+      nameInput.value = name;
+      submitBtn.textContent = '💾 আপডেট করুন';
+      submitBtn.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+      cancelBtn.style.display = 'inline-block';
+      nameInput.focus();
+      nameInput.select();
+    }
+
+    // 🗑️ নাম ডিলিট করুন
+    async function deleteName(id) {
+      if (!confirm('⚠️ আপনি কি নিশ্চিত এই নামটি মুছে ফেলতে চান?')) return;
+      
+      try {
+        const res = await fetch(`${API_URL}/${id}`, { 
+          method: 'DELETE' 
+        });
+        
+        if (!res.ok) throw new Error('ডিলিট ফেল হয়েছে');
+        
+        showStatus('🗑️ নাম মুছে ফেলা হয়েছে!', 'success');
+        fetchNames();
+      } catch (err) {
+        console.error('❌ ডিলিট এরর:', err);
+        showStatus('মুছতে সমস্যা হয়েছে!', 'error');
+      }
+    }
+
+    // 🔄 ফর্ম রিসেট করুন
+    function resetForm() {
+      form.reset();
+      editIdInput.value = '';
+      submitBtn.textContent = '➕ যোগ করুন';
+      submitBtn.style.background = '';
+      cancelBtn.style.display = 'none';
+    }
+
+    // 🚀 পেজ লোড হলে ডাটা ফেচ করুন
+    document.addEventListener('DOMContentLoaded', fetchNames);
+  </script>
+</body>
+</html>
